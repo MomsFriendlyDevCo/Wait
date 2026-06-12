@@ -94,10 +94,111 @@ test('OR conditions resolve on the fastest branch', ()=> {
 });
 
 
+test('AND conditions wait for the slowest', ()=> {
+	let start = Date.now();
+	return execa(app, ['50ms', 'and', '150ms'])
+		.then(({exitCode})=> {
+			test.expect(exitCode).to.equal(0);
+			test.expect(Date.now() - start).to.be.at.least(150);
+		});
+});
+
+
+test('repeat the wait + command cycle', ()=> {
+	let start = Date.now();
+	return execa(app, ['--repeat', '3', '30ms', 'then', 'echo', 'tick'])
+		.then(({stdout, exitCode})=> {
+			test.expect(exitCode).to.equal(0);
+			test.expect(stdout.split('\n')).to.deep.equal(['tick', 'tick', 'tick']);
+			test.expect(Date.now() - start).to.be.at.least(90);
+		});
+});
+
+
+test('inverted conditions flip the match', ()=> {
+	// Load can never be above 9999 so inverting should resolve immediately
+	return execa(app, ['--invert', 'load', 'above', '9999'])
+		.then(({exitCode})=> test.expect(exitCode).to.equal(0));
+});
+
+
 test('unknown conditions exit with code 2', ()=>
 	execa(app, ['blarg'], {reject: false})
 		.then(({exitCode, stderr})=> {
 			test.expect(exitCode).to.equal(2);
 			test.expect(stderr).to.match(/unknown condition/i);
+		})
+);
+
+
+test('typo`d / unparsable conditions exit with code 2', ()=>
+	Promise.all([
+		execa(app, ['untill', '3pm'], {reject: false}), // Typo'd "until"
+		execa(app, ['100sm'], {reject: false}), // Typo'd unit
+		execa(app, ['until', '99:99'], {reject: false}), // Impossible clock time
+		execa(app, ['123', 'exists'], {reject: false}), // Typo'd PID verb
+	]).then(results => results.forEach(({exitCode, stderr})=> {
+		test.expect(exitCode).to.equal(2);
+		test.expect(stderr).to.match(/unknown condition/i);
+	}))
+);
+
+
+test('reject calls with no conditions', ()=>
+	execa(app, [], {reject: false})
+		.then(({exitCode, stderr})=> {
+			test.expect(exitCode).to.equal(2);
+			test.expect(stderr).to.match(/no wait conditions/i);
+		})
+);
+
+
+test('reject trailing AND / OR operands', ()=>
+	execa(app, ['100ms', 'and'], {reject: false})
+		.then(({exitCode, stderr})=> {
+			test.expect(exitCode).to.equal(2);
+			test.expect(stderr).to.match(/trailing/i);
+		})
+);
+
+
+test('reject malformed load conditions', ()=>
+	Promise.all([
+		execa(app, ['load', 'wibble', '5'], {reject: false}),
+		execa(app, ['load', 'above', 'banana'], {reject: false}),
+	]).then(([badOp, badValue])=> {
+		test.expect(badOp.exitCode).to.equal(2);
+		test.expect(badOp.stderr).to.match(/unknown load operator/i);
+		test.expect(badValue.exitCode).to.equal(2);
+		test.expect(badValue.stderr).to.match(/need a number/i);
+	})
+);
+
+
+test('reject invalid --timeout values', ()=>
+	execa(app, ['--timeout', 'bogus', '1h'], {reject: false})
+		.then(({exitCode, stderr})=> {
+			test.expect(exitCode).to.equal(2);
+			test.expect(stderr).to.match(/bogus/);
+		})
+);
+
+
+test('reject invalid --repeat counts', ()=>
+	Promise.all([
+		execa(app, ['--repeat', 'banana', '10ms'], {reject: false}),
+		execa(app, ['--repeat', '-1', '10ms'], {reject: false}),
+	]).then(results => results.forEach(({exitCode, stderr})=> {
+		test.expect(exitCode).to.equal(2);
+		test.expect(stderr).to.match(/invalid --repeat/i);
+	}))
+);
+
+
+test('report unrunnable commands with exit code 1', ()=>
+	execa(app, ['10ms', 'then', 'wibble-command-that-does-not-exist'], {reject: false})
+		.then(({exitCode, stderr})=> {
+			test.expect(exitCode).to.equal(1);
+			test.expect(stderr).to.match(/ENOENT/);
 		})
 );

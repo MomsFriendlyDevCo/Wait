@@ -46,18 +46,28 @@ args = { // Flatten into POJO of option keys + `args:Array<String>`
 	args: args.args,
 };
 
-let repeat = args.repeat ? Number.parseInt(args.repeat) : 1;
-let timeout = args.timeout ? timestring(args.timeout, 'ms') : null;
-
 Promise.resolve()
-	.then(()=> parseWaitArgs(args.args))
+	.then(()=> {
+		let parsed = parseWaitArgs(args.args);
+		if (parsed.command.length > 0) command = parsed.command;
+
+		let repeat = args.repeat ? Number.parseInt(args.repeat) : 1;
+		if (
+			Number.isNaN(repeat)
+			|| repeat < 1
+		) throw new Error(`Invalid --repeat count: "${args.repeat}"`);
+
+		return {
+			conditions: parsed.conditions,
+			repeat,
+			timeout: args.timeout ? timestring(args.timeout, 'ms') : null,
+		};
+	})
 	.catch(e => {
 		console.error(e.message);
 		process.exit(2);
 	})
-	.then(({conditions, command: thenCommand})=> {
-		if (thenCommand.length > 0) command = thenCommand;
-
+	.then(({conditions, repeat, timeout})=> {
 		// Run the wait (+ optional command) cycle `repeat` times in series
 		return Array.from({length: repeat})
 			.reduce(chain => chain
