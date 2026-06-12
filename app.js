@@ -41,6 +41,7 @@ let args = program
 	.example('wait until 123 exits', 'Wait until PID 123 exits with a positive exit code')
 	.example('wait until 3pm', 'Wait until the next time 3pm occurs')
 	.example('wait until tuesday', 'Wait until Tuesday occurs')
+	.example('wait for 1h OR 123 fails', 'Wait for 1 hour OR PID 123 exits with a non-zero code')
 	.parse(argv);
 
 args = { // Flatten into POJO of option keys + `args:Array<String>`
