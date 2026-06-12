@@ -1,0 +1,40 @@
+{
+  "name": "@momsfriendlydevco/wait",
+  "version": "1.0.0",
+  "description": "CLI to wait for given conditions then either do-a-thing or return a zero exit code",
+  "type": "module",
+  "bin": {
+    "wait": "./app.js"
+  },
+  "scripts": {
+    "lint": "eslint",
+    "test": "./app.js"
+  },
+  "keywords": [
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MomsFriendlyDevCo/Wait.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MomsFriendlyDevCo/Wait/issues"
+  },
+  "homepage": "https://github.com/MomsFriendlyDevCo/Wait#readme",
+  "author": "Matt Carter <m@ttcarter.com>",
+  "license": "MIT",
+  "engineStrict": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "commander-extras": "^1.4.0",
+    "timestring": "^7.0.0"
+  },
+  "devDependencies": {
+    "@momsfriendlydevco/eslint-config": "^2.5.1",
+    "@momsfriendlydevco/testa": "^1.2.0",
+    "eslint": "^10.4.1"
+  }
+}
