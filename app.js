@@ -46,37 +46,50 @@ args = { // Flatten into POJO of option keys + `args:Array<String>`
 	args: args.args,
 };
 
-// Parse positional args into conditions + optional "then" command
-let conditions;
-try {
-	let parsed = parseWaitArgs(args.args);
-	conditions = parsed.conditions;
-	if (parsed.command.length > 0) command = parsed.command;
-} catch (e) {
-	console.error(e.message);
-	process.exit(2);
-}
-
 let repeat = args.repeat ? Number.parseInt(args.repeat) : 1;
 let timeout = args.timeout ? timestring(args.timeout, 'ms') : null;
 
-for (let iteration = 0; iteration < repeat; iteration++) {
-	let satisfied = await waitFor(conditions, {
-		invert: !! args.invert,
-		timeout,
-	});
-	if (!satisfied) process.exit(Number.parseInt(args.timeoutAs));
+Promise.resolve()
+	.then(()=> parseWaitArgs(args.args))
+	.catch(e => {
+		console.error(e.message);
+		process.exit(2);
+	})
+	.then(({conditions, command: thenCommand})=> {
+		if (thenCommand.length > 0) command = thenCommand;
 
-	if (command.length > 0) {
-		let exitCode = await new Promise(resolve =>
-			spawn(command[0], command.slice(1), {stdio: 'inherit'})
-				.on('error', e => {
-					console.error(e.message);
-					resolve(1);
+		// Run the wait (+ optional command) cycle `repeat` times in series
+		return Array.from({length: repeat})
+			.reduce(chain => chain
+				.then(()=> waitFor(conditions, {
+					invert: !! args.invert,
+					timeout,
+				}))
+				.then(satisfied => {
+					if (!satisfied) process.exit(Number.parseInt(args.timeoutAs));
 				})
-				.on('exit', code => resolve(code ?? 1))
-		);
-		if (exitCode != 0) process.exit(exitCode);
-	}
+				.then(()=> command.length > 0 && runCommand(command))
+				.then(exitCode => {
+					if (exitCode) process.exit(exitCode);
+				})
+			, Promise.resolve());
+	})
+	.then(()=> process.exit(0)); // eslint-disable-line unicorn/prefer-top-level-await
+
+
+/**
+* Run a command, inheriting stdio, and resolve with its exit code
+*
+* @param {Array<String>} command Command + arguments to execute
+* @returns {Promise<Number>} Resolves with the command exit code (1 if it failed to spawn)
+*/
+function runCommand(command) {
+	return new Promise(resolve =>
+		spawn(command[0], command.slice(1), {stdio: 'inherit'})
+			.on('error', e => {
+				console.error(e.message);
+				resolve(1);
+			})
+			.on('exit', code => resolve(code ?? 1))
+	);
 }
-process.exit(0);

@@ -1,4 +1,4 @@
-import {defineConfig, globalIgnores} from "eslint/config";
+import {defineConfig, globalIgnores} from 'eslint/config';
 import RulesMFDC from '@momsfriendlydevco/eslint-config';
 
 export default defineConfig([
