@@ -6,6 +6,7 @@ import {program} from 'commander'
 import 'commander-extras';
 import {spawn} from 'node:child_process';
 import timestring from 'timestring';
+import {Display} from './lib/display.js';
 import {parseWaitArgs} from './lib/parse.js';
 import {waitFor} from './lib/wait.js';
 
@@ -27,6 +28,7 @@ let args = program
 	.option('--invert, -v', 'Invert the match condition')
 	.option('--timeout <timestring>', 'Give up and exit after the given time period')
 	.option('--timeout-as <exit-code>', 'Raise the given exit code when timing out', 1)
+	.option('--quiet, -q', 'Suppress the condition progress display')
 	.allowExcessArguments()
 	.note('CONDITION: [timestring] - any valid, parsable timestring compatible expression to denote waiting for a time')
 	.note('CONDITION: [time] - pause until the given, relative or parsable time')
@@ -68,14 +70,23 @@ Promise.resolve()
 		process.exit(2);
 	})
 	.then(({conditions, repeat, timeout})=> {
+		let display = args.quiet
+			? null
+			: new Display(conditions, {timeout});
+
 		// Run the wait (+ optional command) cycle `repeat` times in series
 		return Array.from({length: repeat})
 			.reduce(chain => chain
-				.then(()=> waitFor(conditions, {
-					invert: !! args.invert,
-					timeout,
-				}))
+				.then(()=> {
+					let waiting = waitFor(conditions, { // Stamps condition state synchronously...
+						invert: !! args.invert,
+						timeout,
+					});
+					display?.start(); // ...so the display can begin rendering it
+					return waiting;
+				})
 				.then(satisfied => {
+					display?.stop(satisfied);
 					if (!satisfied) process.exit(Number.parseInt(args.timeoutAs));
 				})
 				.then(()=> command.length > 0 && runCommand(command))

@@ -122,6 +122,44 @@ test('inverted conditions flip the match', ()=> {
 });
 
 
+test('display a tick-list of conditions by default', ()=>
+	execa(app, ['100ms'])
+		.then(({stderr})=> {
+			test.expect(stderr).to.match(/○ Wait 100ms/); // Pending at first...
+			test.expect(stderr).to.match(/remaining/); // ...with a countdown...
+			test.expect(stderr).to.match(/✔ Wait 100ms/); // ...then ticked once satisfied
+		})
+);
+
+
+test('display OR group separators', ()=>
+	execa(app, ['50ms', 'or', '1h'])
+		.then(({stderr})=> {
+			test.expect(stderr).to.match(/-- OR --/);
+			test.expect(stderr).to.match(/✔ Wait 50ms/);
+		})
+);
+
+
+test('display timed out conditions', ()=>
+	execa(app, ['--timeout', '100ms', 'load', 'above', '9999'], {reject: false})
+		.then(({stderr})=> {
+			test.expect(stderr).to.match(/○ Wait for load > 9999 \(currently [\d.]+\)/);
+			test.expect(stderr).to.match(/✘ Wait for load > 9999 \(timed out\)/);
+		})
+);
+
+
+test('suppress the display with --quiet / -q', ()=>
+	Promise.all([
+		execa(app, ['--quiet', '50ms']),
+		execa(app, ['-q', '50ms']),
+	]).then(results => results.forEach(({stderr})=>
+		test.expect(stderr).to.equal('')
+	))
+);
+
+
 test('unknown conditions exit with code 2', ()=>
 	execa(app, ['blarg'], {reject: false})
 		.then(({exitCode, stderr})=> {
