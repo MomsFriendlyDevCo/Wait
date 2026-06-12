@@ -1,6 +1,6 @@
 {
   "name": "@momsfriendlydevco/wait",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CLI to wait for given conditions then either do-a-thing or return a zero exit code",
   "type": "module",
   "bin": {
